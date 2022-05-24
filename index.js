@@ -21,6 +21,7 @@ async function run() {
     const toolCollection = client.db('tools').collection('collection');
     const bookingCollection = client.db('tools').collection('bookings');
     const customerCollection = client.db('tools').collection('allbook');
+    const personCollection = client.db('tools').collection('person');
     
     app.get("/data" ,async(req,res)=>{
       const query = {};
@@ -44,7 +45,7 @@ async function run() {
     })
     app.post('/booking',async(req,res)=>{
       const book = req.body;
-      const query = {booking:book.booking, buyer:book.buyer,name: book.name}
+      const query = {booking:book.booking, buyer:book.buyer,name: book.name,price:book.price}
       const exists = await bookingCollection.findOne(query);
       if(exists){
         return res.send ({success:false, book:exists})
@@ -70,6 +71,11 @@ async function run() {
     //root
     app.get('/',(req,res)=>{
       res.send("hello i can learn code");
+    })
+    app.post('/person', async(req,res)=>{
+        const person = req.body;
+        const result = await personCollection.insertOne(person);
+        res.send(result)
     })
 
   }
