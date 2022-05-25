@@ -25,6 +25,7 @@ async function run() {
         const customerCollection = client.db('tools').collection('allbook');
         const personCollection = client.db('tools').collection('person');
         const paymentCollection = client.db('tools').collection('payment');
+        const userCollection = client.db('tools').collection('users');
 
         app.get("/data", async (req, res) => {
             const query = {};
@@ -39,6 +40,17 @@ async function run() {
             const items = await cursor.toArray();
             res.send(items);
 
+        })
+        app.put('/user/:email',async(req,res)=>{
+            const email = req.params.email;
+            const user = req.body;
+            const filter = {email:email};
+            const options = {upsert:true};
+            const updatedDoc ={
+                $set: user,
+            };
+            const result = await userCollection.updateOne(filter,updatedDoc,options);
+            res.send(result)
         })
         app.get("/data/:id", async (req, res) => {
             const id = req.params.id;
