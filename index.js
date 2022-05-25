@@ -24,6 +24,7 @@ async function run() {
         const bookingCollection = client.db('tools').collection('bookings');
         const customerCollection = client.db('tools').collection('allbook');
         const personCollection = client.db('tools').collection('person');
+        const paymentCollection = client.db('tools').collection('payment');
 
         app.get("/data", async (req, res) => {
             const query = {};
@@ -72,6 +73,23 @@ async function run() {
             const newUser = req.body;
             const result = await customerCollection.insertOne(newUser);
             res.send(result)
+        })
+        app.patch('/booking/:id',async(req,res)=>{
+            const id =req.params.id;
+            const payment = req.body;
+            const filter= {_id:ObjectId(id)}
+            const updatedDoc = {
+                $set:{
+                    paid:true,
+                    transactionId : payment.transactionId
+
+                }
+            }
+            const updatedBooking = await bookingCollection.updateOne(filter,updatedDoc);
+            const result = await paymentCollection.insertOne(payment)
+            res.send(updatedDoc)
+
+
         })
         app.post('/create-payment-intent', async (req, res) => {
             const service = req.body;
