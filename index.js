@@ -68,6 +68,18 @@ async function run() {
             const token = jwt.sign({ email: email }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1h' })
             res.send({ result, token })
         })
+        app.put('/user/:admin/:email', async (req, res) => {
+            const email = req.params.email;
+            
+            const filter = { email: email };
+            
+            const updatedDoc = {
+                $set: {role:'admin'},
+            };
+            const result = await userCollection.updateOne(filter, updatedDoc);
+            
+            res.send({ result})
+        })
         app.get("/data/:id", async (req, res) => {
             const id = req.params.id;
             const query = { _id: ObjectId(id) };
@@ -87,16 +99,28 @@ async function run() {
         app.get('/booking', verifyJwt, async (req, res) => {
             const buyer = req.query.buyer;
             const authorization = req.headers.authorization;
-            console.log('auth header', authorization)
-            const query = { buyer: buyer };
-            const orders = await bookingCollection.find(query).toArray();
-            res.send(orders)
+            const decodedEmail = req.decoded.email;
+            if (buyer === decodedEmail) {
+                const query = { buyer: buyer };
+                const orders = await bookingCollection.find(query).toArray();
+                return res.send(orders)
+
+            }
+            else {
+                return res.status(403).send({ message: 'forbidden access' })
+
+            }
+
         })
         app.get('/booking/:id', async (req, res) => {
             const id = req.params.id;
             const query = { _id: ObjectId(id) };
             const booking = await bookingCollection.findOne(query);
             res.send(booking)
+        })
+        app.get('/user', verifyJwt ,async (req, res) => {
+            const users = await userCollection.find().toArray();
+            res.send(users)
         })
         //post reviews in ui
         app.post('/review', async (req, res) => {
