@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const jwt = require('jsonwebtoken')
 require('dotenv').config();
 const app = express();
 const port = process.env.PORT || 5000;
@@ -14,7 +15,21 @@ app.use(express.json());
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.ngj4j.mongodb.net/myFirstDatabase?retryWrites=true&w=majority`;
 console.log(uri)
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
+const verifyJwt = (req, res, next) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+        return res.status(401).send({ message: 'unauthorised access' })
+    }
+    const token = authHeader.split(' ')[1];
+    jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, function (err, decoded) {
+        if (err) {
+            return res.status(403).send({ message: 'Forbidden access' })
+        }
+        req.decoded = decoded;
+        next();
+    })
 
+}
 
 
 async function run() {
@@ -41,16 +56,17 @@ async function run() {
             res.send(items);
 
         })
-        app.put('/user/:email',async(req,res)=>{
+        app.put('/user/:email', async (req, res) => {
             const email = req.params.email;
             const user = req.body;
-            const filter = {email:email};
-            const options = {upsert:true};
-            const updatedDoc ={
+            const filter = { email: email };
+            const options = { upsert: true };
+            const updatedDoc = {
                 $set: user,
             };
-            const result = await userCollection.updateOne(filter,updatedDoc,options);
-            res.send(result)
+            const result = await userCollection.updateOne(filter, updatedDoc, options);
+            const token = jwt.sign({ email: email }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1h' })
+            res.send({ result, token })
         })
         app.get("/data/:id", async (req, res) => {
             const id = req.params.id;
@@ -68,8 +84,10 @@ async function run() {
             const result = await bookingCollection.insertOne(book);
             res.send({ success: true, result })
         })
-        app.get('/booking', async (req, res) => {
+        app.get('/booking', verifyJwt, async (req, res) => {
             const buyer = req.query.buyer;
+            const authorization = req.headers.authorization;
+            console.log('auth header', authorization)
             const query = { buyer: buyer };
             const orders = await bookingCollection.find(query).toArray();
             res.send(orders)
@@ -86,18 +104,18 @@ async function run() {
             const result = await customerCollection.insertOne(newUser);
             res.send(result)
         })
-        app.patch('/booking/:id',async(req,res)=>{
-            const id =req.params.id;
+        app.patch('/booking/:id', async (req, res) => {
+            const id = req.params.id;
             const payment = req.body;
-            const filter= {_id:ObjectId(id)}
+            const filter = { _id: ObjectId(id) }
             const updatedDoc = {
-                $set:{
-                    paid:true,
-                    transactionId : payment.transactionId
+                $set: {
+                    paid: true,
+                    transactionId: payment.transactionId
 
                 }
             }
-            const updatedBooking = await bookingCollection.updateOne(filter,updatedDoc);
+            const updatedBooking = await bookingCollection.updateOne(filter, updatedDoc);
             const result = await paymentCollection.insertOne(payment)
             res.send(updatedDoc)
 
