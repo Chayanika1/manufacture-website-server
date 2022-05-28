@@ -41,6 +41,7 @@ async function run() {
         const personCollection = client.db('tools').collection('person');
         const paymentCollection = client.db('tools').collection('payment');
         const userCollection = client.db('tools').collection('users');
+        const newCollection = client.db('tools').collection('new');
 
         app.get("/data", async (req, res) => {
             const query = {};
@@ -49,13 +50,48 @@ async function run() {
             res.send(items);
 
         })
-        app.get("/review", async (req, res) => {
+        app.get("/profile/:email", async (req, res) => {
+            const email = req.params.email;
+            console.log(email);
+            const query = { email: email };
+      
+            const result = await userCollection.find(query).toArray();
+            res.send(result);
+          });
+          app.get("/review", async (req, res) => {
             const query = {};
             const cursor = customerCollection.find(query);
             const items = await cursor.toArray();
             res.send(items);
 
         })
+        app.post('/review', async (req, res) => {
+            const newUser = req.body;
+            const result = await customerCollection.insertOne(newUser);
+            res.send(result)
+        })
+        app.post('/new',async(req,res)=>{
+            const newUser = req.body;
+            const result = await userCollection.insertOne(newUser);
+            res.send(result)
+        })
+          app.put("/profile/:id", async (req, res) => {
+            const id = req.params;
+            const user = req.body;
+            const options = { upsert: true };
+            const filter = { _id: ObjectId(id) };
+            const updateDoc = {
+              $set: user,
+            };
+            const result = await userCollection.updateOne(
+              filter,
+              updateDoc,
+              options
+            );
+            res.send(result);
+          });
+        
+       
         app.put('/user/:email', async (req, res) => {
             const email = req.params.email;
             const user = req.body;
@@ -68,14 +104,29 @@ async function run() {
             const token = jwt.sign({ email: email }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1h' ,})
             res.send({ result, token })
         })
+          app.get('/admin/:email',async(req,res)=>{
+              const email = req.params.email;
+              const user = await userCollection.findOne({email:email});
+              const isAdmin = user.role == 'admin';
+              res.send({admin :isAdmin})
+          })
         app.put("/user/admin/:email", verifyJwt, async (req, res) => {
             const email = req.params.email;
-            const filter = {email:email};
+            const requester = req.decoded.email;
+            const requesterAccount = await userCollection.findOne({email:requester});
+            if(requesterAccount.role == 'admin'){
+                const filter = {email:email};
             const updatedDoc= {
                 $set:{role:"admin"}
             };
             const result = await userCollection.updateOne(filter,updatedDoc);
             res.send(result)
+
+            }
+            else{
+                res.status(403).send({message:'forbidden'})
+            }
+            
           });
       
       
@@ -85,6 +136,14 @@ async function run() {
             const result = await toolCollection.findOne(query);
             res.send(result)
         })
+        app.delete("/data/:id", async (req, res) => {
+            const id = req.params.id;
+            console.log(id);
+            const query = { _id: ObjectId(id) };
+            const result = await toolCollection.deleteOne(query)
+            res.send(result);
+          });
+        
         app.post('/booking', async (req, res) => {
             const book = req.body;
             const query = { booking: book.booking, buyer: book.buyer, name: book.name, price: book.price }
@@ -111,23 +170,42 @@ async function run() {
             }
 
         })
+        app.get('/order',async(req,res)=>{
+            const orders = await bookingCollection.find().toArray();
+            res.send(orders)
+        })
+        
+        app.delete("/order/:id", async (req, res) => {
+            const id = req.params.id;
+            console.log(id);
+            const query = { _id: ObjectId(id) };
+            const result = await bookingCollection.deleteOne(query)
+            res.send(result);
+          });
         app.get('/booking/:id', async (req, res) => {
             const id = req.params.id;
             const query = { _id: ObjectId(id) };
             const booking = await bookingCollection.findOne(query);
             res.send(booking)
         })
+        app.delete('/booking/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: ObjectId(id) };
+            const booking = await bookingCollection.deleteOne(query);
+            res.send(booking)
+        })
         app.get('/user', verifyJwt ,async (req, res) => {
             const users = await userCollection.find().toArray();
             res.send(users)
         })
+        app.post("/data", async (req, res) => {
+            const orders = req.body;
+            const result = await toolCollection.insertOne(orders);
+            res.send(result);
+          });
         //post reviews in ui
-        app.post('/review', async (req, res) => {
-            const newUser = req.body;
-            const result = await customerCollection.insertOne(newUser);
-            res.send(result)
-        })
-        app.patch('/booking/:id', async (req, res) => {
+        
+        app.patch('/booking/:id',verifyJwt, async (req, res) => {
             const id = req.params.id;
             const payment = req.body;
             const filter = { _id: ObjectId(id) }
@@ -168,11 +246,7 @@ async function run() {
         app.get('/', (req, res) => {
             res.send("hello i can learn code");
         })
-        app.post('/person', async (req, res) => {
-            const person = req.body;
-            const result = await personCollection.insertOne(person);
-            res.send(result)
-        })
+        
 
     }
     finally {
