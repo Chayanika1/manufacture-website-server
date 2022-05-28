@@ -190,6 +190,7 @@ async function run() {
         })
         app.delete('/booking/:id', async (req, res) => {
             const id = req.params.id;
+            console.log('delete',id)
             const query = { _id: ObjectId(id) };
             const booking = await bookingCollection.deleteOne(query);
             res.send(booking)
